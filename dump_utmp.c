@@ -29,14 +29,14 @@ int main()
       /* time_t log_time = ut.ut_tv.tv_sec; */
       time_t log_time = ut.ut_time;
 
-/*  Original outdated code 
+/*  Original outdated code
  *
  *     tm = localtime(&log_time);
  *
  *     * if (tm->tm_year != now.tm_year || tm->tm_yday != now.tm_yday)
  *     *  break;
  *
- *    printf("%02d:%02d type=", tm->tm_hour,tm->tm_min); 
+ *    printf("%02d:%02d type=", tm->tm_hour,tm->tm_min);
 */
 
       struct tm format_tm = *localtime(&log_time);

@@ -1151,7 +1151,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
     sprintf(path, "/dev/%s", dev);
     if (stat(dev, pstat) /* if can't get status for port */
 #ifdef TIMEOUTDX11
-       && !chk_xsession(dev, host) == TIMEOUTD_XSESSION_LOCAL    /* && if it's not a local Xsession */
+        && !(chk_xsession(dev, host) == TIMEOUTD_XSESSION_LOCAL)    /* && if it's not a local Xsession */
 #endif
     )
     {
