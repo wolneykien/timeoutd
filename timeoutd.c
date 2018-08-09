@@ -58,7 +58,7 @@
 
 /* For those systems (SUNOS) which don't define this: */
 #ifndef WTMP_FILE
-#define WTMP_FILE "/usr/adm/wtmp"
+#define WTMP_FILE "/var/log/wtmp"
 #endif
 
 #ifdef SUNOS
@@ -396,7 +396,7 @@ char	*argv[];
 void read_wtmp()
 {
     FILE	*fp;
-    struct utmp	ut;
+    struct utmp ut;
     struct tm	*tm;
 
 #ifdef DEBUG
@@ -418,7 +418,9 @@ void read_wtmp()
 
     while (fread(&ut, sizeof(struct utmp), 1, fp) == 1)
     {
-      tm = localtime(&ut.ut_time);
+      /* tm = localtime(&ut.ut_time); */
+      time_t log_time = ut.ut_time;
+      tm = localtime(&log_time);
 
       if (tm->tm_year != now.tm_year || tm->tm_yday != now.tm_yday)
         break;
@@ -1050,7 +1052,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
     strncpy(dev, utmpp->ut_line, sizeof(dev) - 1);    /* get device name */
     dev[sizeof(dev) - 1] = '\0';
     sprintf(path, "/dev/%s", dev);
-    if (stat(path, pstat) && !chk_xsession(dev, host) == TIMEOUTD_XSESSION_LOCAL)   /* if can't get status for 
+    if (stat(path, pstat) && !(chk_xsession(dev, host) == TIMEOUTD_XSESSION_LOCAL))   /* if can't get status for 
     port && if it's not a local Xsession */
     {
         sprintf(errmsg, "Can't get status of user %s's terminal (%s)\n",

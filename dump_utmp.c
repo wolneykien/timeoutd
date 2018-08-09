@@ -1,15 +1,19 @@
 #include    <stdio.h>
+#include    <stdlib.h>
 #include    <utmp.h>
 #include    <time.h>
+#include    <string.h>
 
-main()
+int main()
 {
     FILE	*fp;
-    struct utmp	ut;
-    struct tm	*tm;
+    struct 	utmp ut;
     char	user[9];
     char	host[17];
     char	line[13];
+    char	buf[30];
+    int		pid;
+    /* struct 	tm *tm; */
 
     if ((fp = fopen(UTMP_FILE, "r")) == NULL)
     {
@@ -22,14 +26,23 @@ main()
 
     while (fread(&ut, sizeof(struct utmp), 1, fp) == 1)
     {
-      tm = localtime(&ut.ut_time);
+      /* time_t log_time = ut.ut_tv.tv_sec; */
+      time_t log_time = ut.ut_time;
 
-/*
-      if (tm->tm_year != now.tm_year || tm->tm_yday != now.tm_yday)
-        break;
+/*  Original outdated code 
+ *
+ *     tm = localtime(&log_time);
+ *
+ *     * if (tm->tm_year != now.tm_year || tm->tm_yday != now.tm_yday)
+ *     *  break;
+ *
+ *    printf("%02d:%02d type=", tm->tm_hour,tm->tm_min); 
 */
 
-      printf("%02d:%02d type=", tm->tm_hour,tm->tm_min);
+      struct tm format_tm = *localtime(&log_time);
+      strftime(buf, sizeof(buf), "%a %d %b %Y - %H:%M:%S", &format_tm);
+      printf("%s type=", buf);
+
       switch (ut.ut_type)
       {
 #ifndef SUNOS
@@ -58,7 +71,8 @@ main()
      host[16] = 0;
      strncpy(line, ut.ut_line, 12);
      line[12] = 0;
-     printf(" line=%s host=%s user=%s\n", line, host, user);
+     pid = ut.ut_pid;
+     printf(" line=%s host=%s user=%s pid=%d\n", line, host, user, pid);
 
 
       /* Position the file pointer 2 structures back */

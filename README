@@ -12,6 +12,11 @@ each tty on your system:
 To build timeoutd, you should make any changes to the makefile for
 your preferred compilation options, then simply:
 
+Required Dev pkgs: libpthread-stubs0-dev libx11-dev libx11-doc \
+libxau-dev libxcb1-dev libxdmcp-dev x11proto-core-dev x11proto-input-dev \
+x11proto-kb-dev xorg-sgml-doctools xtrans-dev libxext-dev libxss-dev \
+x11proto-scrnsaver-dev x11proto-xext-dev
+
 make
 
 The next step is to install a timeouts file in /usr/etc specifying
@@ -37,7 +42,7 @@ Otherwise, users who are not allowed to login will be logged off within
 Another (albeit less certain) way of doing this is to put the following
 line in /etc/profile near the top of the file:
 
-/usr/etc/timeoutd `whoami` `basename \`tty\`` || exit
+/usr/sbin/timeoutd `whoami` `basename \`tty\`` || exit
 
 
 Please sends bugs, comments, suggestions to:
