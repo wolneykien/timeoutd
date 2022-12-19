@@ -50,6 +50,10 @@
 #include    <getopt.h>
 #include    <stdarg.h>
 
+#ifdef WITH_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
+
 #ifdef TIMEOUTDX11
 #include <netdb.h>
 #include <X11/Xlib.h>
@@ -83,12 +87,53 @@ FILE	*utfile = NULL;
 int opt_foreground = 0;
 int opt_verbose = 0;
 
+static void print_loglevel(int priority)
+{
+#ifdef WITH_SYSTEMD
+	const char *level = NULL;
+
+	switch (priority)
+	{
+	case LOG_EMERG:
+		level = SD_EMERG;
+		break;
+	case LOG_ALERT:
+		level = SD_ALERT;
+		break;
+	case LOG_CRIT:
+		level = SD_CRIT;
+		break;
+	case LOG_ERR:
+		level = SD_ERR;
+		break;
+	case LOG_WARNING:
+		level = SD_WARNING;
+		break;
+	case LOG_NOTICE:
+		level = SD_NOTICE;
+		break;
+	case LOG_INFO:
+		level = SD_INFO;
+		break;
+	case LOG_DEBUG:
+		level = SD_DEBUG;
+		break;
+	}
+
+	if (level)
+	{
+		fprintf(stderr, level);
+	}
+#endif
+}
+
 static void vprintlog(int priority, const char *format, va_list ap)
 {
 	if (opt_foreground) {
 		// TODO: Print with priority.
 		if (priority < LOG_NOTICE || opt_verbose)
 		{
+			print_loglevel(priority);
 			vfprintf(stderr, format, ap);
 			fprintf(stderr, "\n");
 		}
