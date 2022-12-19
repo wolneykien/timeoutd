@@ -1,7 +1,9 @@
 /*
-		"@(#) timeoutd.c 1.6 by Shane Alderton"
+		"@(#) timeoutd.c 1.5.1 by Shane Alderton"
 			based on:
 		"@(#) autologout.c by David Dickson" 
+                        updatede by
+		"@(#) Dennis Stampfer and Paul Wolneykien"
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,6 +25,9 @@
 
 */
 /* #define DEBUG _DEBUG_ */
+
+#define VERSION "1.5.1"
+
 #include    <unistd.h>
 #include    <stdlib.h>
 #include    <sys/ioctl.h>
@@ -42,6 +47,8 @@
 #include    <termios.h>
 #include    <fcntl.h>
 #include    <dirent.h>
+#include    <getopt.h>
+#include    <stdarg.h>
 
 #ifdef TIMEOUTDX11
 #include <netdb.h>
@@ -73,6 +80,24 @@ FILE	*utfile = NULL;
 #define NEED_STRSEP
 #endif
 
+int opt_foreground = 0;
+int opt_verbose = 0;
+
+static void printlog(int priority, const char *format, ...)
+{
+	va_list ap;
+
+	if (opt_foreground) {
+		// TODO: Print with priority.
+		if (priority < LOG_NOTICE || opt_verbose)
+		{
+			vfprintf(stderr, format, ap);
+			fprintf(stderr, "\n");
+		}
+	} else {
+		vsyslog(priority, format, ap);
+	}
+}
 
 #ifdef NEED_UTMP_UTILS
 void setutent()
@@ -81,9 +106,7 @@ void setutent()
 	{
 		if ((utfile = fopen("/etc/utmp", "r")) == NULL)
 		{
-			openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-			syslog(LOG_ERR, "Could not open /etc/utmp");
-			closelog();
+			printlog(LOG_ERR, "Could not open /etc/utmp");
 			exit(1);
 		}
 	}
@@ -111,6 +134,8 @@ struct utmp *getutent()    /* returns next utmp file entry */
 #ifndef CONFIG
 #define CONFIG "/etc/timeoutd/timeouts"
 #endif
+
+const char* config_filename = CONFIG;
 
 #define MAXLINES 512
 #define max(a,b) ((a)>(b)?(a):(b))
@@ -258,6 +283,12 @@ char *delim;
 }
 #endif
 
+static void print_usage()
+{
+
+  fprintf(stderr, "timeoutd [options] [USER TTY]\n");
+}
+
 int main(argc, argv)
 int	argc;
 char	*argv[];
@@ -269,14 +300,56 @@ char	*argv[];
     signal(SIGQUIT, SIG_IGN);
     signal(SIGSEGV, segfault);
 
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
 
-/* The only valid invocations are "timeoutd" or "timeoutd user tty" */
-    if (argc != 1 && argc != 3)
-    {
-      openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-      syslog(LOG_ERR, "Incorrect invocation of timeoutd (argc=%d) by UID %d.", argc, getuid());
-      closelog();
+    static const struct option opts[] = {
+        {"foreground", no_argument, NULL, 'f'},
+        {"verbose", no_argument, NULL, 'v'},
+        {"version", no_argument, NULL, 'V'},
+        {"config", required_argument, NULL, 'c'},
+	{"help",  no_argument, NULL, 'h'},
+        {NULL, 0, NULL, 0}
+    };
+
+    extern char *optarg;
+    extern int optind;
+    char c;
+
+    while ((c = getopt_long(argc, argv, "fvVc:h", opts, NULL)) != -1) {
+      switch (c) {
+      case 'f':
+	opt_foreground = 1;
+	break;
+      case 'v':
+	opt_verbose = 1;
+	break;
+      case 'V':
+	fprintf(stderr, "Timeoutd v" VERSION "\n\n");
+	fprintf(stderr, "timeoutd is a programm which allows you to automatically logout users by idle timeouts. timeoutd is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.\n\n");
+	fprintf(stderr, "Originally written by Shane Alderton <shanea@bigpond.net.au>, updated by Dennis Stampfer <seppy@debian.org> and Paul Wolneykien <manowar@altlinux.org>.\n");
+	exit(0);
+	break;
+      case 'c':
+	config_filename = optarg;
+	break;
+      case 'h':
+	print_usage();
+	fprintf(stderr, "\n");
+	fprintf(stderr, "Options:\n\n");
+	fprintf(stderr, "    -f, --foreground    do not fork;\n");
+	fprintf(stderr, "    -v, --verbose       be verbose;\n");
+	fprintf(stderr, "    -V, --version       print version and copyright information and exit;\n");
+	fprintf(stderr, "    -c CONF, --config=CONF    use the specified configuration file;\n");
+	fprintf(stderr, "    -h, --help          print this page and exit.\n");
+	exit(0);
+      default:
+	print_usage();
+	exit(1);
+      }
+    }
+
+    /* check for trailing command line following options */
+    if ((argc - optind) != 0 && (argc - optind) != 2) {
+      print_usage();
       exit(5);
     }
 
@@ -289,20 +362,15 @@ char	*argv[];
  */
     if (chdir("/dev"))
     {
-      openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-      syslog(LOG_ERR, "Could not change working directory to /dev!");
-      closelog();
+      printlog(LOG_ERR, "Could not change working directory to /dev!");
       exit(1);
     }
 
-/* Handle the "timeoutd user tty" invocation */
-/* This is a bit of a shameless hack, but, well, it works. */
-    if (argc == 3)
+    /* Handle the "timeoutd user tty" invocation */
+    if (optind < argc)
     {
 #ifdef DEBUG
-        openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        syslog(SYSLOG_DEBUG, "Running in user check mode.  Checking user %s on %s.", argv[1], argv[2]);
-        closelog();
+        printlog(SYSLOG_DEBUG, "Running in user check mode.  Checking user %s on %s.", argv[1], argv[2]);
 #endif
     	strncpy(dev, argv[2], sizeof(dev) - 1);
     	dev[sizeof(dev) - 1] = '\0';
@@ -314,11 +382,9 @@ char	*argv[];
         switch(chk_timeout(argv[1], dev, "",  0, 0))
         {
             case DAYMAX:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_NOTICE,
+		printlog(LOG_NOTICE,
 		       "User %s on %s exceeded maximum daily limit (%d minutes).  Login check failed.",
 		       argv[1], argv[2], config[configline]->daymax);
-    		closelog();
     		/*
     		printf("\r\nLogin not permitted.  You have exceeded your maximum daily limit.\r\n");
     		printf("Please try again tomorrow.\r\n");
@@ -326,54 +392,49 @@ char	*argv[];
     		logoff_msg(1);
     		exit(10);
             case NOLOGIN:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_NOTICE,
+		printlog(LOG_NOTICE,
 		       "User %s not allowed to login on %s at this time.  Login check failed.",
 		       argv[1], argv[2]);
-    		closelog();
     		/*
     		printf("\r\nLogin not permitted at this time.  Please try again later.\r\n");
     		*/
     		logoff_msg(1);
     		exit(20);
 	    case LOCKOUT:
-	        openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_NOTICE,
+		printlog(LOG_NOTICE,
 		       "User %s has not had a long enough rest to login on %s at this time.  Login check failed.",
 		       argv[1], argv[2]);
-    		closelog();
 		logoff_msg(1);
     		exit(20);
 
             case ACTIVE:
 #ifdef DEBUG
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(SYSLOG_DEBUG, "User %s on %s passed login check.", argv[1], argv[2]);
-    		closelog();
+		printlog(SYSLOG_DEBUG, "User %s on %s passed login check.", argv[1], argv[2]);
 #endif
 		free_wtmp();
 		exit(0);
             default:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_ERR, "Internal error checking user %s on %s - unexpected return from chk_timeout",
+		printlog(LOG_ERR, "Internal error checking user %s on %s - unexpected return from chk_timeout",
 			argv[1], argv[2]);
-    		closelog();
     		exit(30);
         }
     }
 
     /* If running in daemon mode (no parameters) */
-    if (fork())             /* the parent process */
-        exit(0);            /* exits */
+    if (!opt_foreground)
+    {
+	    if (fork())             /* the parent process */
+		    exit(0);        /* exits */
 
-    close(0);
-    close(1);
-    close(2);
-    setsid();
+	    close(0);
+	    close(1);
+	    close(2);
+	    setsid();
 
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(LOG_NOTICE, "Daemon started.");
-    closelog();
+	    printlog(LOG_NOTICE, "Daemon started.");
+    } else {
+	    printlog(LOG_NOTICE, "Started.");
+    }
 
     /* the child processes all utmp file entries: */
     while (1)
@@ -386,9 +447,7 @@ char	*argv[];
         read_wtmp(); /* Read in today's wtmp entries */
     	setutent();
 #ifdef DEBUG
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    	syslog(SYSLOG_DEBUG, "Time to check utmp for exceeded limits.");
-    	closelog();
+    	printlog(SYSLOG_DEBUG, "Time to check utmp for exceeded limits.");
 #endif
         while ((utmpp = getutent()) != (struct utmp *) NULL)
             check_idle();
@@ -397,9 +456,7 @@ char	*argv[];
         if (pending_reread)
            reread_config(SIGHUP);
 #ifdef DEBUG
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        syslog(SYSLOG_DEBUG, "Finished checking utmp... sleeping for 1 minute.");
-	closelog();
+        printlog(SYSLOG_DEBUG, "Finished checking utmp... sleeping for 1 minute.");
 #endif
         sleep(60);
     }
@@ -414,18 +471,14 @@ void read_wtmp()
     struct tm	*tm;
 
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "Reading today's wtmp entries.");
-    closelog();
+    printlog(SYSLOG_DEBUG, "Reading today's wtmp entries.");
 #endif
 
     if ((fp = fopen(WTMP_FILE, "r")) == NULL)
       bailout("Could not open wtmp file!", 1);
 
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "Seek to end of wtmp");
-    closelog();
+    printlog(SYSLOG_DEBUG, "Seek to end of wtmp");
 #endif
     /* Go to end of file minus one structure */
     fseek(fp, -1L * sizeof(struct utmp), SEEK_END);
@@ -459,9 +512,7 @@ void read_wtmp()
     }
     fclose(fp);
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "Finished reading today's wtmp entries.");
-    closelog();
+    printlog(SYSLOG_DEBUG, "Finished reading today's wtmp entries.");
 #endif
 }
 
@@ -470,9 +521,7 @@ void read_wtmp()
 void free_wtmp()
 {
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "Freeing list of today's wtmp entries.");
-    closelog();
+    printlog(SYSLOG_DEBUG, "Freeing list of today's wtmp entries.");
 #endif
 
     while (wtmplist)
@@ -495,9 +544,7 @@ void free_wtmp()
         free(ut_list_p);
     }
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "Finished freeing list of today's wtmp entries.");
-    closelog();
+    printlog(SYSLOG_DEBUG, "Finished freeing list of today's wtmp entries.");
 #endif
 }
 
@@ -528,9 +575,7 @@ char *time_str;
       {
         if (!p[1] || !isalpha(p[1]))
         {
-	  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-          syslog(LOG_ERR, "Malformed day name (%c%c) in time field of config file (%s).  Entry ignored.", p[0], p[1], CONFIG);
-          closelog();
+          printlog(LOG_ERR, "Malformed day name (%c%c) in time field of config file (%s).  Entry ignored.", p[0], p[1], config_filename);
           (*t)->days = 0;
           return;
         }
@@ -549,9 +594,7 @@ char *time_str;
       	}
       	if (!daynames[i])
       	{
-	  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-          syslog(LOG_ERR, "Malformed day name (%c%c) in time field of config file (%s).  Entry ignored.", p[0], p[1], CONFIG);
-          closelog();
+          printlog(LOG_ERR, "Malformed day name (%c%c) in time field of config file (%s).  Entry ignored.", p[0], p[1], config_filename);
           (*t)->days = 0;
           return;
       	}
@@ -563,9 +606,7 @@ char *time_str;
       {
         if (strlen(p) != 9 || p[4] != '-')
         {
-	  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-          syslog(LOG_ERR, "Malformed time (%s) in time field of config file (%s).  Entry ignored.", p, CONFIG);
-          closelog();
+          printlog(LOG_ERR, "Malformed time (%s) in time field of config file (%s).  Entry ignored.", p, config_filename);
           (*t)->days = 0;
           return;
         }
@@ -573,9 +614,7 @@ char *time_str;
         te->endtime = atoi(p+5);
         if ((te->starttime == 0 && strncmp(p, "0000-", 5)) || (te->endtime == 0 && strcmp(p+5, "0000")))
         {
-	  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-          syslog(LOG_ERR, "Invalid range (%s) in time field of config file (%s).  Entry ignored.", p, CONFIG);
-          closelog();
+          printlog(LOG_ERR, "Invalid range (%s) in time field of config file (%s).  Entry ignored.", p, config_filename);
           (*t)->days = 0;
           return;
         }
@@ -613,8 +652,10 @@ void read_config()
     char	*tok;
     int		linenum = 0;
 
-    if ((config_file = fopen(CONFIG, "r")) == NULL)
+    if ((config_file = fopen(config_filename, "r")) == NULL)
       bailout("Cannot open config file", 1);
+
+    printlog(LOG_NOTICE, "Using configuration file %s", config_filename);
 
     while (fgets(line, 256, config_file) != NULL)
     {
@@ -690,11 +731,9 @@ void read_config()
 	if (!config[i]->times || !config[i]->ttys  ||
 	    !config[i]->users || !config[i]->groups)
         {
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        	syslog(LOG_ERR,
+        	printlog(LOG_ERR,
         		"Error on line %d of config file (%s).  Line ignored.",
-        		linenum, CONFIG);
-        	closelog();
+        		linenum, config_filename);
 	}
 	else i++;
       }
@@ -937,25 +976,19 @@ char *host;
 #endif
 
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "Warning %s@%s on %s of pending logoff in %d minutes.",
+    printlog(SYSLOG_DEBUG, "Warning %s@%s on %s of pending logoff in %d minutes.",
     	user, host, tty, time_remaining);
-    closelog();
 #endif
 #ifdef TIMEOUTDX11
     if(chk_xsession(tty, host)) {
-    	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    	syslog(SYSLOG_DEBUG, "Warning %s running X on %s for pending logout! (%d min%s left)", user, tty, time_remaining, time_remaining==1?"":"s");
-    	closelog();
+    	printlog(SYSLOG_DEBUG, "Warning %s running X on %s for pending logout! (%d min%s left)", user, tty, time_remaining, time_remaining==1?"":"s");
 
   	/* then send the message using xmessage */
   	/* well, this is not really clean: */
 	sprintf(cmdbuf, "su %s -c \"xmessage -default okay -display %s -center 'WARNING: You will be logged out in %d minute%s when your %s limit expires.'&\"", user, host, time_remaining, time_remaining==1?"":"s", limit_names[limit_type]);
 	system(cmdbuf);
 #ifdef DEBUG
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	syslog(LOG_DEBUG, "cmdbuf=%s", cmdbuf);
-	closelog();
+	printlog(LOG_DEBUG, "cmdbuf=%s", cmdbuf);
 #endif
 	sleep(KWAIT); /* and give the user some time to read the message ;) */
 	return;
@@ -964,9 +997,7 @@ char *host;
     if ((fd = open(tty, O_WRONLY|O_NOCTTY|O_NONBLOCK)) < 0 ||
 	(ttyf = fdopen(fd, "w")) == NULL)
     {
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        syslog(LOG_ERR, "Could not open %s to warn of impending logoff.\n",tty);
-        closelog();
+        printlog(LOG_ERR, "Could not open %s to warn of impending logoff.\n",tty);
         return;
     }
     fprintf(ttyf, "\r\nWARNING:\r\nYou will be logged out in %d minute%s when your %s limit expires.\r\n",
@@ -997,23 +1028,17 @@ int session;
 /* Find primary group for specified user */
     if ((pw = getpwnam(user)) == NULL)
     {
-      openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-      syslog(LOG_ERR, "Could not get password entry for %s.", user);
-      closelog();
+      printlog(LOG_ERR, "Could not get password entry for %s.", user);
       return 0;
     }
     if ((gr = getgrgid(pw->pw_gid)) == NULL)
     {
-      openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-      syslog(LOG_ERR, "Could not get group name for %s.", user);
-      closelog();
+      printlog(LOG_ERR, "Could not get group name for %s.", user);
       return 0;
     }
 
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "Checking user %s group %s tty %s.", user, gr->gr_name, tty);
-    closelog();
+    printlog(SYSLOG_DEBUG, "Checking user %s group %s tty %s.", user, gr->gr_name, tty);
 #endif
 
 /* Check to see if current user matches any entry based on tty/user/group */
@@ -1049,10 +1074,8 @@ printf("Group %s member %s\n", secgr->gr_name, *p);
         {
           get_day_time(user);
 #ifdef DEBUG
-	  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	  syslog(SYSLOG_DEBUG, "Matched entry %d", configline);
-	  syslog(SYSLOG_DEBUG, "Idle=%d (max=%d) Sess=%d (max=%d) Daily=%d (max=%d) warntime=%d", idle, config[configline]->idlemax, session, config[configline]->sessmax, daytime, config[configline]->daymax, config[configline]->warntime);
-	  closelog();
+	  printlog(SYSLOG_DEBUG, "Matched entry %d", configline);
+	  printlog(SYSLOG_DEBUG, "Idle=%d (max=%d) Sess=%d (max=%d) Daily=%d (max=%d) warntime=%d", idle, config[configline]->idlemax, session, config[configline]->sessmax, daytime, config[configline]->daymax, config[configline]->warntime);
 #endif
 	  disc = getdisc(dev, host);
 
@@ -1136,9 +1159,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
 	
     if(aktconfigline > 0) { /* > 0 if user is not in config */
 #ifdef DEBUG
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	syslog(SYSLOG_DEBUG, "User %s or * not in config -> No restrictions. Not checking %s on %s", user, user, dev);
-	closelog();
+	printlog(SYSLOG_DEBUG, "User %s or * not in config -> No restrictions. Not checking %s on %s", user, user, dev);
 #endif
 	return; /* now, we return because the user beeing checked is not in config, so he has no restrictions */
     }
@@ -1167,9 +1188,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
 #ifdef TIMEOUTDX11	
     if(chk_xsession(dev, host) && !chk_xterm(dev, host)) { /* check idle for Xsession, but not for xterm */
     	idle = get_xidle(user, host) / 1000 / 60; /* get_xidle returns millisecs, we need mins */
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	syslog(SYSLOG_DEBUG, "get_xidle(%s,%s) returned %d mins idle for %s.", dev, host, (int)idle, user);
-	closelog();
+	printlog(SYSLOG_DEBUG, "get_xidle(%s,%s) returned %d mins idle for %s.", dev, host, (int)idle, user);
     }
     else if (chk_xterm(dev, host)) return;
     else
@@ -1181,59 +1200,45 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
     {
     	case ACTIVE:
 #ifdef DEBUG
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(SYSLOG_DEBUG, "User %s is active.", user);
-		closelog();
+		printlog(SYSLOG_DEBUG, "User %s is active.", user);
 #endif
     		break;
     	case IDLEMAX:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    		syslog(LOG_NOTICE,
+    		printlog(LOG_NOTICE,
     		       "User %s exceeded idle limit (idle for %ld minutes, max=%d).\n",
     		       user, idle, config[configline]->idlemax);
-    		closelog();
 		killit(utmpp->ut_pid, user, dev, host);
     		break;
     	case SESSMAX:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_NOTICE,
+		printlog(LOG_NOTICE,
 		       "User %s exceeded maximum session limit at %s (on for %ld minutes, max=%d).\n",
 		       user, dev, sesstime, config[configline]->sessmax);
-    		closelog();
 		killit(utmpp->ut_pid, user, dev, host);
     		break;
     	case DAYMAX:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_NOTICE,
+		printlog(LOG_NOTICE,
 		       "User %s exceeded maximum daily limit (on for %d minutes, max=%d).\n",
 		       user, daytime, config[configline]->daymax);
-    		closelog();
 		killit(utmpp->ut_pid, user, dev, host);
     		break;
 	case NOLOGIN:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
 		#ifdef DEBUG
-		syslog(LOG_NOTICE, "NOLOGIN period reached for user %s@%s. (pid %d)", user, host, utmpp->ut_pid);
+		printlog(LOG_NOTICE, "NOLOGIN period reached for user %s@%s. (pid %d)", user, host, utmpp->ut_pid);
 		#else
-		syslog(LOG_NOTICE, "NOLOGIN period reached for user %s %s", user, host);
+		printlog(LOG_NOTICE, "NOLOGIN period reached for user %s %s", user, host);
 		#endif
-		closelog();
 		killit(utmpp->ut_pid, user, dev, host);
 		break;
         case LOCKOUT:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
 		#ifdef DEBUG
-		syslog(LOG_NOTICE, "User %s@%s logged in during LOCKOUT period. (pid %d)", user, host, utmpp->ut_pid);
+		printlog(LOG_NOTICE, "User %s@%s logged in during LOCKOUT period. (pid %d)", user, host, utmpp->ut_pid);
 		#else
-		syslog(LOG_NOTICE, "User %s logged in from %s during LOCKOUT period.", user, host);
+		printlog(LOG_NOTICE, "User %s logged in from %s during LOCKOUT period.", user, host);
 		#endif
-		closelog();
 		killit(utmpp->ut_pid, user, dev, host);
 		break;
 	default:
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_ERR, "Internal error - unexpected return from chk_timeout");
-    		closelog();
+		printlog(LOG_ERR, "Internal error - unexpected return from chk_timeout");
     }
 }
 
@@ -1241,27 +1246,21 @@ void bailout(message, status) /* display error message and exit */
 int     status;     /* exit status */
 char    *message;   /* pointer to the error message */
 {
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(LOG_ERR, "Exiting - %s", message);
-    closelog();
+    printlog(LOG_ERR, "Exiting - %s", message);
     exit(status);
 }
 
 void shut_down(signum)
 int signum;
 {
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(LOG_NOTICE, "Received SIGTERM.. exiting.");
-    closelog();
+    printlog(LOG_NOTICE, "Received SIGTERM.. exiting.");
     exit(0);
 }
 
 void segfault(signum)
 int signum;
 {
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(LOG_NOTICE, "Received SIGSEGV.. Something went wrong! Exiting!");
-    closelog();
+    printlog(LOG_NOTICE, "Received SIGSEGV.. Something went wrong! Exiting!");
     exit(0);
 }
 
@@ -1321,9 +1320,7 @@ char *host;
 /* Tell user which limit they have exceeded and that they will be logged off */
     if ((tty = open(dev, O_WRONLY|O_NOCTTY|O_NONBLOCK)) < 0)
     {
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        syslog(LOG_ERR, "Could not write logoff message to %s.", dev);
-        closelog();
+        printlog(LOG_ERR, "Could not write logoff message to %s.", dev);
 	return;
     }
 	
@@ -1333,16 +1330,12 @@ char *host;
 	   (because we don't want to slay another user ;) */
 	cpid = getcpid(pid);
 #ifdef DEBUG
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	syslog(LOG_NOTICE, "I am at killit() pid=%d user=%s child=%d line %d", pid, user, cpid, __LINE__);
-	closelog();
+	printlog(LOG_NOTICE, "I am at killit() pid=%d user=%s child=%d line %d", pid, user, cpid, __LINE__);
 #endif
 	
 	if(chk_ssh(pid) && chk_ssh(cpid) && !strcmp(getusr(cpid), user)) {
 #ifdef DEBUG
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        	syslog(LOG_NOTICE, "User %s (pid:%d, cpid:%d) logged in via ssh from %s.", user, pid, cpid, host);
-        	closelog();
+        	printlog(LOG_NOTICE, "User %s (pid:%d, cpid:%d) logged in via ssh from %s.", user, pid, cpid, host);
 #endif
 		pid = cpid;
 	}
@@ -1352,9 +1345,7 @@ char *host;
     close(tty);
 
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(LOG_NOTICE, "Would normally kill pid %d user %s on %s",pid,user,dev);
-    closelog();
+    printlog(LOG_NOTICE, "Would normally kill pid %d user %s on %s",pid,user,dev);
     return;
 #endif
 
@@ -1366,15 +1357,11 @@ char *host;
     signal(SIGHUP, SIG_IGN);
     if ((pw = getpwnam(user)) == NULL)
     {
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        syslog(LOG_ERR, "Could not log user %s off line %s - unable to determine uid.", user, dev);
-        closelog();
+        printlog(LOG_ERR, "Could not log user %s off line %s - unable to determine uid.", user, dev);
     }
     if (setuid(pw->pw_uid))
     {
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        syslog(LOG_ERR, "Could not log user %s off line %s - unable to setuid(%d).", user, dev, pw->pw_uid);
-        closelog();
+        printlog(LOG_ERR, "Could not log user %s off line %s - unable to setuid(%d).", user, dev, pw->pw_uid);
     }
     kill(-1, SIGHUP);
     sleep(KWAIT);
@@ -1387,9 +1374,7 @@ char *host;
         sleep(KWAIT);
         if (!kill(pid, 0))
         {
-	    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-            syslog(LOG_ERR, "Could not log user %s off line %s.", user, dev);
-            closelog();
+            printlog(LOG_ERR, "Could not log user %s off line %s.", user, dev);
         }
     }
 #endif
@@ -1406,9 +1391,7 @@ int signum;
     else
     {
         pending_reread = 0;
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        syslog(LOG_NOTICE, "Re-reading configuration file.");
-        closelog();
+        printlog(LOG_NOTICE, "Re-reading configuration file.");
         while (config[i])
         {
             free(config[i]->times);
@@ -1454,27 +1437,21 @@ char *host;
 	
     if ((fd = open(d, O_RDONLY|O_NONBLOCK|O_NOCTTY)) < 0)
     {
-      openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-      syslog(LOG_WARNING, "Could not open %s for checking line discipline - idle limits will be enforced.", d);
-      closelog();
+      printlog(LOG_WARNING, "Could not open %s for checking line discipline - idle limits will be enforced.", d);
       return N_TTY;
     }
 
     if (ioctl(fd, TIOCGETD, &disc) < 0)
     {
       close(fd);
-      openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-      syslog(LOG_WARNING, "Could not get line discipline for %s - idle limits will be enforced.", d);
-      closelog();
+      printlog(LOG_WARNING, "Could not get line discipline for %s - idle limits will be enforced.", d);
       return N_TTY;
     }
 
     close(fd);
 
 #ifdef DEBUG
-    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-    syslog(SYSLOG_DEBUG, "TTY %s: Discipline=%s.",d,disc==N_SLIP?"SLIP":disc==N_TTY?"TTY":disc==N_PPP?"PPP":disc==N_MOUSE?"MOUSE":"UNKNOWN");
-    closelog();
+    printlog(SYSLOG_DEBUG, "TTY %s: Discipline=%s.",d,disc==N_SLIP?"SLIP":disc==N_TTY?"TTY":disc==N_PPP?"PPP":disc==N_MOUSE?"MOUSE":"UNKNOWN");
 #endif
 
     return disc;
@@ -1502,9 +1479,7 @@ char *dev,*host;
        * dennis   pts/3    localhost        20:01    0.00s  0.01s  0.00s  w
        */       
       #ifdef DEBUG
-         openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-         syslog(LOG_DEBUG, "LOCAL Xsession detected. device=%s host=%s", dev, host);
-         closelog();
+         printlog(LOG_DEBUG, "LOCAL Xsession detected. device=%s host=%s", dev, host);
       #endif
 	 return TIMEOUTD_XSESSION_LOCAL;
     }
@@ -1516,17 +1491,13 @@ char *dev,*host;
        */
 
       #ifdef DEBUG
-         openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-         syslog(LOG_DEBUG, "REMOTE Xsession detected. device=%s host=%s", dev, host);
-         closelog();
+         printlog(LOG_DEBUG, "REMOTE Xsession detected. device=%s host=%s", dev, host);
       #endif
       return TIMEOUTD_XSESSION_REMOTE;
     }
     else {
       #ifdef DEBUG
-         openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-         syslog(LOG_DEBUG, "NO xsession detected. device=%s host=%s", dev, host);
-         closelog();
+         printlog(LOG_DEBUG, "NO xsession detected. device=%s host=%s", dev, host);
       #endif
       return TIMEOUTD_XSESSION_NONE;
     }
@@ -1544,9 +1515,7 @@ char *dev,*host;
 {
     if(strncmp(dev, "pts/0", 3) == 0 && strncmp(host, ":0", 1) == 0 ) {
       #ifdef DEBUG
-         openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-         syslog(LOG_DEBUG, "XTERM detected. device=%s host=%s Ignoring.", dev, host);
-         closelog();
+         printlog(LOG_DEBUG, "XTERM detected. device=%s host=%s Ignoring.", dev, host);
       #endif
     	return 1;
     }
@@ -1572,9 +1541,7 @@ char *host, *user;
   sprintf(cmdbuf, "su %s -c \"xmessage -display %s -center '%s'&\"", user, host, msgbuf);
   system(cmdbuf);
   #ifdef DEBUG
-	    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-            syslog(LOG_DEBUG, "cmdbuf=%s", cmdbuf);
-            closelog();
+            printlog(LOG_DEBUG, "cmdbuf=%s", cmdbuf);
   #endif
   sleep(KWAIT); /* and give the user some time to read the message ;) */
 	    
@@ -1588,15 +1555,11 @@ char *host, *user;
         sleep(KWAIT);
         if (!kill(pid, 0))
         {
-	    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-            syslog(LOG_ERR, "Could not log user %s off line %s. (running X)", user, host);
-            closelog();
+            printlog(LOG_ERR, "Could not log user %s off line %s. (running X)", user, host);
         }
     }
   #else
-  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-  syslog(LOG_ERR, "Would normally logoff user %s running X (kill PID %d)", user, pid);
-  closelog();
+  printlog(LOG_ERR, "Would normally logoff user %s running X (kill PID %d)", user, pid);
   #endif
 }
 #endif
@@ -1608,9 +1571,7 @@ pid_t pid;
 	sprintf(path, "/proc/%d/stat", pid);
 	proc_file = fopen(path, "r");
 	if(!proc_file) {
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        	syslog(LOG_WARNING, "chk_ssh(): PID %d does not exist. Something went wrong. Ignoring.", pid);
-        	closelog();
+        	printlog(LOG_WARNING, "chk_ssh(): PID %d does not exist. Something went wrong. Ignoring.", pid);
 		return 0;
 	}
 
@@ -1630,9 +1591,7 @@ pid_t pid;
 	sprintf(path, "/proc/%d/status", pid);
 	proc_file = fopen(path, "r");
 	if(!proc_file) {
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-        	syslog(LOG_NOTICE, "getusr(): PID %d does not exist. Ignoring.", pid);
-        	closelog();
+        	printlog(LOG_NOTICE, "getusr(): PID %d does not exist. Ignoring.", pid);
 		return "unknown";
 	}
 	while(!fscanf(proc_file, "Uid:    %s", uid))
@@ -1656,15 +1615,11 @@ char *display;
 
 	pwEntry = getpwnam(user);
 	if(!pwEntry) {
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_ERR, "Could not get passwd-entry for user %s", user);
-		closelog();
+		printlog(LOG_ERR, "Could not get passwd-entry for user %s", user);
 	}
 
 #ifdef DEBUG
-	openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	syslog(LOG_DEBUG, "Changing to user %s(%d) and connecting to X", user, pwEntry->pw_uid);
-	closelog();
+	printlog(LOG_DEBUG, "Changing to user %s(%d) and connecting to X", user, pwEntry->pw_uid);
 #endif
 
 	/*change into the user running x. we need that to connect to X*/
@@ -1676,9 +1631,7 @@ char *display;
 
 	/*become user*/
 	if(seteuid(pwEntry->pw_uid) == -1) {
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_ERR, "Could not seteuid(%d).", pwEntry->pw_uid);
-		closelog();
+		printlog(LOG_ERR, "Could not seteuid(%d).", pwEntry->pw_uid);
 	}
 
 	sprintf(homedir, "HOME=%s", pwEntry->pw_dir);
@@ -1686,9 +1639,7 @@ char *display;
 
 	/* First, check if there is a xserver.. */ 
 	if ((dpy = XOpenDisplay (display)) == NULL) { /* = intended */
-		openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-		syslog(LOG_NOTICE, "Could not connect to %s to query idle-time for %s. Ignoring.", display, user);
-		closelog();
+		printlog(LOG_NOTICE, "Could not connect to %s to query idle-time for %s. Ignoring.", display, user);
 	} else {
 	if (!mitInfo) 
 	  mitInfo = XScreenSaverAllocInfo ();
@@ -1762,14 +1713,10 @@ char *cmd;
 	/*become user*/
         pwEntry = getpwnam(user);
 	if(!pwEntry) {
-	  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	  syslog(LOG_ERR, "Could not get passwd-entry for user %s", user);
-	  closelog();
+	  printlog(LOG_ERR, "Could not get passwd-entry for user %s", user);
 	}
 	if(seteuid(pwEntry->pw_uid) == -1) {
-	  openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-	  syslog(LOG_ERR, "Could not seteuid(%d).", pwEntry->pw_uid);
-	  closelog();
+	  printlog(LOG_ERR, "Could not seteuid(%d).", pwEntry->pw_uid);
 	}
 	sprintf(homedir, "HOME=%s", pwEntry->pw_dir);
 	putenv(homedir);
@@ -1780,9 +1727,7 @@ char *cmd;
 	setuid(oldeuid);
 
 #ifdef DEBUG
-	    openlog("timeoutd", OPENLOG_FLAGS, LOG_DAEMON);
-            syslog(LOG_DEBUG, "cmd=%s", cmd);
-            closelog();
+            printlog(LOG_DEBUG, "cmd=%s", cmd);
 #endif
 
 	return retval;
