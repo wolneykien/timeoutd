@@ -83,10 +83,8 @@ FILE	*utfile = NULL;
 int opt_foreground = 0;
 int opt_verbose = 0;
 
-static void printlog(int priority, const char *format, ...)
+static void vprintlog(int priority, const char *format, va_list ap)
 {
-	va_list ap;
-
 	if (opt_foreground) {
 		// TODO: Print with priority.
 		if (priority < LOG_NOTICE || opt_verbose)
@@ -97,6 +95,15 @@ static void printlog(int priority, const char *format, ...)
 	} else {
 		vsyslog(priority, format, ap);
 	}
+}
+
+static void printlog(int priority, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	vprintlog(priority, format, ap);
+	va_end(ap);
 }
 
 #ifdef NEED_UTMP_UTILS
@@ -170,7 +177,7 @@ void        reapchild();
 void        free_wtmp();
 void        check_idle();
 void        read_wtmp();
-void        bailout();
+void        bailout(int status, const char *message, ...);
 char	    chk_timeout();
 void	    logoff_msg();
 void	    killit();
@@ -475,7 +482,7 @@ void read_wtmp()
 #endif
 
     if ((fp = fopen(WTMP_FILE, "r")) == NULL)
-      bailout("Could not open wtmp file!", 1);
+      bailout(1, "Could not open wtmp file %s", WTMP_FILE);
 
 #ifdef DEBUG
     printlog(SYSLOG_DEBUG, "Seek to end of wtmp");
@@ -501,7 +508,7 @@ void read_wtmp()
 #endif
       {
         if ((ut_list_p = (struct ut_list *) malloc(sizeof(struct ut_list))) == NULL)
-          bailout("Out of memory in read_wtmp.", 1);
+          bailout(1, "Out of memory in read_wtmp");
         ut_list_p->elem = ut;
         ut_list_p->next = wtmplist;
         wtmplist = ut_list_p;
@@ -562,7 +569,7 @@ char *time_str;
         ar_size++;
 
     if ((*t = (struct time_ent *) malloc (ar_size * sizeof(struct time_ent))) == NULL)
-	bailout("Out of memory", 1);
+      bailout(1, "Out of memory");
     te = *t;
 
     p = strtok(time_str, ",");
@@ -635,7 +642,7 @@ char **a;
 char *b;
 {
 	if ((*a = (char *) malloc(strlen(b)+1)) == NULL)
-		bailout("Out of memory", 1);
+		bailout(1, "Out of memory");
 	else	strcpy(*a, b);
 }
 
@@ -653,7 +660,8 @@ void read_config()
     int		linenum = 0;
 
     if ((config_file = fopen(config_filename, "r")) == NULL)
-      bailout("Cannot open config file", 1);
+	    bailout(1, "Cannot open configuration file %s",	\
+		    config_filename);
 
     printlog(LOG_NOTICE, "Using configuration file %s", config_filename);
 
@@ -670,9 +678,9 @@ void read_config()
       if (*lstart)
       {
       	if (i == MAXLINES)
-      	  bailout("Too many lines in timeouts config file.", 1);
+		bailout(1, "Too many lines in timeouts config file");
         if ((config[i] = (struct config_ent *) malloc(sizeof(struct config_ent))) == NULL)
-          bailout("Out of memory", 1);
+		bailout(1, "Out of memory");
   	config[i]->times = NULL;
   	config[i]->ttys = NULL;
   	config[i]->users = NULL;
@@ -741,7 +749,7 @@ void read_config()
     config[i] = NULL;
 
     if (fclose(config_file) == EOF)
-      bailout("Cannot close config file", 1);
+	    bailout(1, "Cannot close the config file");
 
 #ifdef DEBUG
 	i = 0;
@@ -801,7 +809,7 @@ char *in_set;
     char	*t;
     char	*set = (char *) malloc(strlen(in_set) + 1);
 
-    if (set == NULL) bailout("Out of memory", 1);
+    if (set == NULL) bailout(1, "Out of memory");
     else strcpy(set, in_set);
 
     t = strtok(set, " ,");
@@ -1178,7 +1186,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
     {
         sprintf(errmsg, "Can't get status of user %s's terminal (%s)\n",
         	user, dev);
-	/* bailout(errmsg, 1); MOH: is there a reason to exit here? */
+	/* bailout(1, errmsg); MOH: is there a reason to exit here? */
 	return; 
     }
     /* idle time is the lesser of:
@@ -1242,12 +1250,16 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
     }
 }
 
-void bailout(message, status) /* display error message and exit */
-int     status;     /* exit status */
-char    *message;   /* pointer to the error message */
+/* display error message and exit */
+void bailout(int status, const char *message, ...)
 {
-    printlog(LOG_ERR, "Exiting - %s", message);
-    exit(status);
+	va_list ap;
+
+	va_start(ap, message);
+	vprintlog(LOG_ERR, message, ap);
+	printlog(LOG_ERR, "Exiting...");
+	va_end(ap);
+	exit(status);
 }
 
 void shut_down(signum)
