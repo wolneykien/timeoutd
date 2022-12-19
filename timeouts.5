@@ -12,11 +12,11 @@ The timeouts file is a plain ASCII file.  Blank lines, or lines where
 the first non blank character is a hash (#) will be ignored.  All other
 lines should be of the format:
 .PP
-TIMES:TTYS:USERS:GROUPS:MAXIDLE:MAXSESS:MAXDAY:WARN
+TIMES:TTYS:USERS:GROUPS:MAXIDLE[;MESSAGE]:MAXSESS[;MESSAGE]:MAXDAY[;MESSAGE]:WARN:LOCKOUT[;MESSAGE]
 .PP
 OR
 .PP
-TIMES:TTYS:USERS:GROUPS:LOGINSTATUS
+TIMES:TTYS:USERS:GROUPS:LOGINSTATUS[;MESSAGE]
 .PP
 \fBTIMES\fR is a comma separated list of times for which the entry is valid.
 The entry will be ignored completely outside these times.
@@ -32,7 +32,7 @@ SSSS and EEEE are start and end times in 24 hour notation.
 \fBTTYS\fR is a comma separated list of ttys (without the leading /dev/)
 for which the entry is valid.  A trailing asterisk (*) will result in
 any tty which matches up to the asterisk being accepted.  An asterisk
-by itself matches all tttys.
+by itself matches all ttys.
 .PP
 \fBUSERS\fR is a comma separated list of users, with pattern matching
 as for TTYS.
@@ -56,6 +56,9 @@ about to be logged off due to exceeding MAXSESS or MAXDAY.  WARN is
 measured in minutes with a default value of 5.  The user will receive
 a warning every minute for WARN minutes before being logged off.
 .PP
+\fBLOCKOUT\fR is the number of minutes that must elapse after a
+(MAXSESS - WARN) length session before a user can login again.
+.PP
 \fBLOGINSTATUS\fR is one of either LOGIN or NOLOGIN and is used to
 limit the times during which certain people or groups of people can
 use specific terminals.
@@ -68,11 +71,21 @@ When calculating the number of minutes for which a user has been logged
 on in the given day, timeoutd will consider logged in time on all
 ttys covered by the TTYS field for the matching entry.
 .PP
+.SH MESSAGES
+The MAXIDLE, MAXSESSION, MAXDAY, LOCKOUT and NOLOGIN fields can
+optionally be follwed by semicolon and a string which provides a
+custom message to be used in the event of that limit being
+exceeded. The string can be either the message itself or a fully
+qualified path to a file containing the text required.
+.BR
+If these are not specified, built-in defaults are used.
+.PP
 .SH EXAMPLES
-.IP Al:*:*:*:10
-Would match all all users in any group regardless of which tty they are
-logged in on and allow an idle time of 10 minutes, with no daily or
-session time limits.
+.IP Al:*:*:*:10;/etc/timeoutd/messages/idle
+Would match all all users in any group regardless of which tty they
+are logged in on and allow an idle time of 10 minutes, with no daily
+or session time limits. A custom message would be used from the file
+specified to inform the user what is happening.
 .IP SaSu:ttyS*:*:subs:5:90:180:3
 Would match all users in group subs logged on to any dialin line (assuming
 all serial lines are dialins) over the weekend and allow them 5 minutes
@@ -89,7 +102,7 @@ and 60 minutes on ttyS4.
 Would match all dialled in users (if all ttyS lines were modems) and
 prevent them logging in before 7am or after 8pm on weekdays.
 .SH FILES
-/etc/timeouts
+/etc/timeoutd/timeouts
 .SH BUGS
 See timeoutd(8)
 .SH "SEE ALSO"

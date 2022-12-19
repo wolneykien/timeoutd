@@ -1,19 +1,19 @@
-# /etc/timeouts: user login/idle/session time limits.  See timeouts(5).
+# /etc/timeoutd/timeouts: user login/idle/session time limits.  See timeouts(5).
 #
-# Format:  TIMES:TTYS:USERS:GROUPS:MAXIDLE:MAXSESS:MAXDAY:WARN
-#   or:    TIMES:TTYS:USERS:GROUPS:LOGINSTATUS
+# Format:  TIMES:TTYS:USERS:GROUPS:MAXIDLE[;MESSAGE]:MAXSESS[;MESSAGE]:MAXDAY[;MESSAGE]:WARN:LOCKOUT[;MESSAGE]
+#   or:    TIMES:TTYS:USERS:GROUPS:LOGINSTATUS[;MESSAGE]
 #
 # Some examples:
 #
-# dopey is not allowed to login
-#Al:*:dopey:*:NOLOGIN
+# dopey is not allowed to login. Custom message read from a file
+#Al:*:dopey:*:NOLOGIN;/etc/timeoutd/messages/nologin
 #
 # cas gets unlimited use
 #Al:*:cas:*:0:0:0:0
 #
-# fred is allowed 20 minutes idle, 240 mins per session, and 480 mins per day
+# fred is allowed 20 minutes idle, 240 mins per session, and 480 mins per day and must rest for 20 minutes after a full session
 # on ttyS3
-#Al:ttyS3:fred:*:20:240:480:10
+#Al:ttyS3:fred:*:20:240:480:10:20
 #
 # everyone else is allowed only 120min/session, 240/day
 #Al:ttyS3:*:*:20:120:240:5
