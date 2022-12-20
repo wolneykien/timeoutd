@@ -380,24 +380,24 @@ char	*argv[];
 	opt_debug = 1;
 	break;
       case 'V':
-	fprintf(stderr, "Timeoutd v" VERSION "\n\n");
-	fprintf(stderr, "timeoutd is a programm which allows you to automatically logout users by idle timeouts. timeoutd is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.\n\n");
-	fprintf(stderr, "Originally written by Shane Alderton <shanea@bigpond.net.au>, updated by Dennis Stampfer <seppy@debian.org> and Paul Wolneykien <manowar@altlinux.org>.\n");
+	fprintf(stdout, "Timeoutd v" VERSION "\n\n");
+	fprintf(stdout, "timeoutd is a programm which allows you to automatically logout users by idle timeouts. timeoutd is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.\n\n");
+	fprintf(stdout, "Originally written by Shane Alderton <shanea@bigpond.net.au>, updated by Dennis Stampfer <seppy@debian.org> and Paul Wolneykien <manowar@altlinux.org>.\n");
 	exit(0);
 	break;
       case 'c':
 	config_filename = optarg;
 	break;
       case 'h':
-	print_usage();
-	fprintf(stderr, "\n");
-	fprintf(stderr, "Options:\n\n");
-	fprintf(stderr, "    -f, --foreground    do not fork;\n");
-	fprintf(stderr, "    -v, --verbose       be verbose;\n");
-	fprintf(stderr, "    -d, --debug         print even debug messages;\n");
-	fprintf(stderr, "    -V, --version       print version and copyright information and exit;\n");
-	fprintf(stderr, "    -c CONF, --config=CONF    use the specified configuration file;\n");
-	fprintf(stderr, "    -h, --help          print this page and exit.\n");
+	fprintf(stdout, "timeoutd [options] [USER TTY]\n");
+	fprintf(stdout, "\n");
+	fprintf(stdout, "Options:\n\n");
+	fprintf(stdout, "    -f, --foreground    do not fork;\n");
+	fprintf(stdout, "    -v, --verbose       be verbose;\n");
+	fprintf(stdout, "    -d, --debug         print even debug messages;\n");
+	fprintf(stdout, "    -V, --version       print version and copyright information and exit;\n");
+	fprintf(stdout, "    -c CONF, --config=CONF    use the specified configuration file;\n");
+	fprintf(stdout, "    -h, --help          print this page and exit.\n");
 	exit(0);
       default:
 	print_usage();
