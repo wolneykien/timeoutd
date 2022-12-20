@@ -1030,6 +1030,7 @@ char *host;
 	return;
     }
 #endif
+
     if ((fd = open(tty, O_WRONLY|O_NOCTTY|O_NONBLOCK)) < 0 ||
 	(ttyf = fdopen(fd, "w")) == NULL)
     {
@@ -1196,12 +1197,12 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
 	return; /* now, we return because the user beeing checked is not in config, so he has no restrictions */
     }
 
-
     strncpy(host, utmpp->ut_host, sizeof(host) - 1);	/* get host name */
     host[sizeof(host) - 1] = '\0';
     strncpy(dev, utmpp->ut_line, sizeof(dev) - 1);    /* get device name */
     dev[sizeof(dev) - 1] = '\0';
     sprintf(path, "/dev/%s", dev);
+
     if (stat(dev, pstat) /* if can't get status for port */
 #ifdef TIMEOUTDX11
         && !(chk_xsession(dev, host) == TIMEOUTD_XSESSION_LOCAL)    /* && if it's not a local Xsession */
@@ -1352,8 +1353,7 @@ char *host;
         printlog(LOG_ERR, "Could not write logoff message to %s.", dev);
 	return;
     }
-	
-	
+
 	/* check if the pid is sshd. If so, get PID of the child process (another ssh, owned by the user).
 	   Test reverse if this child process is also ssh and owned by the user we want to log out.
 	   (because we don't want to slay another user ;) */
@@ -1596,7 +1596,7 @@ pid_t pid;
 		return 1;
 	else
 		return 0;
-} 
+}
 
 char *getusr(pid) /*seppy; returns the name of the user owning process with the Process ID pid */
 pid_t pid;
@@ -1655,12 +1655,13 @@ char *display;
 	if ((dpy = XOpenDisplay (display)) == NULL) { /* = intended */
 		printlog(LOG_NOTICE, "Could not connect to %s to query idle-time for %s. Ignoring.", display, user);
 	} else {
-	if (!mitInfo) 
-	  mitInfo = XScreenSaverAllocInfo ();
-	XScreenSaverQueryInfo (dpy, DefaultRootWindow (dpy), mitInfo);
-	retval = mitInfo->idle;
-	XCloseDisplay(dpy);
+	    if (!mitInfo)
+		mitInfo = XScreenSaverAllocInfo ();
+	    XScreenSaverQueryInfo (dpy, DefaultRootWindow (dpy), mitInfo);
+	    retval = mitInfo->idle;
+	    XCloseDisplay(dpy);
 	}
+
 	/*go back again*/
 	putenv(oldhomedir);
 	if(seteuid(oldeuid) == -1) {
@@ -1672,7 +1673,6 @@ char *display;
     	return retval;
 } /* get_xidle(user) */
 #endif
-
 
 /* seppy; getchild()
           returns the pid of the first child-process found. 
@@ -1696,7 +1696,7 @@ pid_t ppid;
 	    printlog(LOG_ERR,"Error opening /proc.");
 	    return -1; /* error */
 	}
-		
+
 	while((cont = readdir(proc)) != NULL)
 		if(cont->d_type == 4 && isdigit(cont->d_name[0])) { /* check only PIDs */						
 			sprintf(path, "/proc/%s/status", cont->d_name);
@@ -1708,7 +1708,7 @@ pid_t ppid;
 
 			while(!fscanf(proc_file, "PPid:    %s", akt_pid))
                 		fgets(akt_pid, 10, proc_file);
-			
+
 			if(atoi(akt_pid) == ppid)
 				return (pid_t)atoi(cont->d_name); /* return pid of child */
 		} /* if(cont->d_type == 4) */
