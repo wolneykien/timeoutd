@@ -7,6 +7,7 @@ man8dir = /usr/share/man/man8
 sysconfdir = /etc
 pkgsysconfdir = $(sysconfdir)/timeoutd
 initdir = $(sysconfdir)/rc.d/init.d
+unitdir = /lib/systemd/system
 
 INSTALL = install
 DESTDIR =
@@ -26,6 +27,7 @@ install:
 	$(INSTALL) -D -m 0444 timeouts.5 $(DESTDIR)$(man5dir)/timeouts.5
 	$(INSTALL) -D -m 0444 timeouts $(DESTDIR)$(pkgsysconfdir)/timeouts
 	$(INSTALL) -D -m 0755 timeoutd.init $(DESTDIR)/$(initdir)/timeoutd
+	$(INSTALL) -D -m 0644 timeoutd.service $(DESTDIR)/$(unitdir)/timeoutd.service
 
 clean:
 	rm -f $(binaries) *.o

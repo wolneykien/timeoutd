@@ -1,0 +1,9 @@
+[Unit]
+Description=Automatically logout users by idle timeouts
+After=systemd-modules-load.service
+
+[Service]
+ExecStart=/usr/sbin/timeoutd -f
+
+[Install]
+WantedBy=multi-user.target
