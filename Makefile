@@ -4,6 +4,9 @@ binaries = timeoutd dump_utmp
 sbindir = /usr/sbin
 man5dir = /usr/share/man/man5
 man8dir = /usr/share/man/man8
+sysconfdir = /etc
+pkgsysconfdir = $(sysconfdir)/timeoutd
+
 INSTALL = install
 DESTDIR =
 
@@ -20,6 +23,7 @@ install:
 	$(INSTALL) -D -m 0751 timeoutd $(DESTDIR)$(sbindir)/timeoutd
 	$(INSTALL) -D -m 0444 timeoutd.8 $(DESTDIR)$(man8dir)/timeoutd.8
 	$(INSTALL) -D -m 0444 timeouts.5 $(DESTDIR)$(man5dir)/timeouts.5
+	$(INSTALL) -D -m 0444 timeouts $(DESTDIR)$(pkgsysconfdir)/timeouts
 
 clean:
 	rm -f $(binaries) *.o
