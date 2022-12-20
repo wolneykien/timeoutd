@@ -84,6 +84,7 @@ FILE	*utfile = NULL;
 
 int opt_foreground = 0;
 int opt_verbose = 0;
+int opt_debug = 0;
 
 static void print_loglevel(int priority)
 {
@@ -129,7 +130,9 @@ static void vprintlog(int priority, const char *format, va_list ap)
 {
 	if (opt_foreground) {
 		// TODO: Print with priority.
-		if (priority < LOG_NOTICE || opt_verbose)
+		if (priority < LOG_NOTICE ||			\
+		    opt_verbose && priority < LOG_DEBUG ||	\
+		    opt_debug)
 		{
 			print_loglevel(priority);
 			vfprintf(stderr, format, ap);
@@ -354,6 +357,7 @@ char	*argv[];
     static const struct option opts[] = {
         {"foreground", no_argument, NULL, 'f'},
         {"verbose", no_argument, NULL, 'v'},
+        {"debug", no_argument, NULL, 'd'},
         {"version", no_argument, NULL, 'V'},
         {"config", required_argument, NULL, 'c'},
 	{"help",  no_argument, NULL, 'h'},
@@ -364,13 +368,16 @@ char	*argv[];
     extern int optind;
     char c;
 
-    while ((c = getopt_long(argc, argv, "fvVc:h", opts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "fvdVc:h", opts, NULL)) != -1) {
       switch (c) {
       case 'f':
 	opt_foreground = 1;
 	break;
       case 'v':
 	opt_verbose = 1;
+	break;
+      case 'd':
+	opt_debug = 1;
 	break;
       case 'V':
 	fprintf(stderr, "Timeoutd v" VERSION "\n\n");
@@ -387,6 +394,7 @@ char	*argv[];
 	fprintf(stderr, "Options:\n\n");
 	fprintf(stderr, "    -f, --foreground    do not fork;\n");
 	fprintf(stderr, "    -v, --verbose       be verbose;\n");
+	fprintf(stderr, "    -d, --debug         print even debug messages;\n");
 	fprintf(stderr, "    -V, --version       print version and copyright information and exit;\n");
 	fprintf(stderr, "    -c CONF, --config=CONF    use the specified configuration file;\n");
 	fprintf(stderr, "    -h, --help          print this page and exit.\n");
