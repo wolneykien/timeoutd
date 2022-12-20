@@ -412,8 +412,7 @@ char	*argv[];
  */
     if (chdir("/dev"))
     {
-      printlog(LOG_ERR, "Could not change working directory to /dev!");
-      exit(1);
+	bailout(1, "Could not change working directory to /dev!");
     }
 
     /* Handle the "timeoutd user tty" invocation */
@@ -544,7 +543,10 @@ void read_wtmp()
 #endif
       {
         if ((ut_list_p = (struct ut_list *) malloc(sizeof(struct ut_list))) == NULL)
-          bailout(1, "Out of memory in read_wtmp");
+	{
+	    bailout(1, "Out of memory in read_wtmp");
+	}
+
         ut_list_p->elem = ut;
         ut_list_p->next = wtmplist;
         wtmplist = ut_list_p;
