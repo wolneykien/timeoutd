@@ -1628,6 +1628,7 @@ char *display;
 	pwEntry = getpwnam(user);
 	if(!pwEntry) {
 		printlog(LOG_ERR, "Could not get passwd-entry for user %s", user);
+		return retval;
 	}
 
 	printlog(LOG_DEBUG, "Changing to user %s(%d) and connecting to X in order to get the idle time...", user, pwEntry->pw_uid);
@@ -1641,7 +1642,8 @@ char *display;
 
 	/*become user*/
 	if(seteuid(pwEntry->pw_uid) == -1) {
-		printlog(LOG_ERR, "Could not seteuid(%d).", pwEntry->pw_uid);
+	    printlog(LOG_ERR, "Could not seteuid(%d).", pwEntry->pw_uid);
+	    return retval;
 	}
 
 	sprintf(homedir, "HOME=%s", pwEntry->pw_dir);
@@ -1659,7 +1661,9 @@ char *display;
 	}
 	/*go back again*/
 	putenv(oldhomedir);
-	setuid(oldeuid);
+	if(seteuid(oldeuid) == -1) {
+	    printlog(LOG_EMERG, "Could not restore UID with seteuid(%d)!", oldeuid);
+	}
 
 	printlog(LOG_DEBUG, "Got %d mins idle for user %s(%d).",
 		 (int) retval, user, pwEntry->pw_uid);
@@ -1695,8 +1699,11 @@ pid_t ppid;
 		if(cont->d_type == 4 && isdigit(cont->d_name[0])) { /* check only PIDs */						
 			sprintf(path, "/proc/%s/status", cont->d_name);
 			proc_file = fopen(path, "r");
-			if(!proc_file)
+			if(!proc_file) {
 			    printlog(LOG_ERR, "Error opening a proc status file %s.", path);
+			    continue;
+			}
+
 			while(!fscanf(proc_file, "PPid:    %s", akt_pid))
                 		fgets(akt_pid, 10, proc_file);
 			
