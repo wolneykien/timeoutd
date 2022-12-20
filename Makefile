@@ -23,9 +23,9 @@ dump_utmp: dump_utmp.c
 
 install:
 	$(INSTALL) -D -m 0751 timeoutd $(DESTDIR)$(sbindir)/timeoutd
-	$(INSTALL) -D -m 0444 timeoutd.8 $(DESTDIR)$(man8dir)/timeoutd.8
-	$(INSTALL) -D -m 0444 timeouts.5 $(DESTDIR)$(man5dir)/timeouts.5
-	$(INSTALL) -D -m 0444 timeouts $(DESTDIR)$(pkgsysconfdir)/timeouts
+	$(INSTALL) -D -m 0644 timeoutd.8 $(DESTDIR)$(man8dir)/timeoutd.8
+	$(INSTALL) -D -m 0644 timeouts.5 $(DESTDIR)$(man5dir)/timeouts.5
+	$(INSTALL) -D -m 0644 timeouts $(DESTDIR)$(pkgsysconfdir)/timeouts
 	$(INSTALL) -D -m 0755 timeoutd.init $(DESTDIR)/$(initdir)/timeoutd
 	$(INSTALL) -D -m 0644 timeoutd.service $(DESTDIR)/$(unitdir)/timeoutd.service
 
