@@ -1296,7 +1296,7 @@ void segfault(signum)
 int signum;
 {
     printlog(LOG_NOTICE, "Received SIGSEGV.. Something went wrong! Exiting!");
-    exit(0);
+    exit(100);
 }
 
 void logoff_msg(tty)
