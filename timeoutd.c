@@ -159,8 +159,7 @@ void setutent()
 	{
 		if ((utfile = fopen("/etc/utmp", "r")) == NULL)
 		{
-			printlog(LOG_ERR, "Could not open /etc/utmp");
-			exit(1);
+			bailout(1, "Could not open /etc/utmp");
 		}
 	}
 	else fseek(utfile, 0L, 0);
