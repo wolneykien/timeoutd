@@ -486,6 +486,8 @@ char	*argv[];
 
 	    printlog(LOG_NOTICE, "Daemon started.");
     } else {
+	    signal(SIGINT, shut_down);
+	    signal(SIGQUIT, shut_down);
 	    printlog(LOG_NOTICE, "Started.");
     }
 
@@ -1287,7 +1289,7 @@ void bailout(int status, const char *message, ...)
 void shut_down(signum)
 int signum;
 {
-    printlog(LOG_NOTICE, "Received SIGTERM.. exiting.");
+    printlog(LOG_NOTICE, "Received signal %d: Exiting...", signum);
     exit(0);
 }
 
