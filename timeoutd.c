@@ -232,7 +232,6 @@ int	    get_rest_time(char*,int);
 int 	    chk_ssh(pid_t pid); /* seppy: check if user is logged in via ssh (we have to
 handle that different... ;( */
 char	    *getusr(pid_t pid); /*seppy: get the owner of a running process */
-void	    segfault(); /* seppy: catch segfault and log them */
 int	    chk_xterm(); /* seppy: is it a xterm? */
 pid_t	    getcpid(); /* seppy: get the child's pid. Needed for ssh */
 
@@ -350,8 +349,6 @@ char	*argv[];
     signal(SIGCHLD, reapchild);
     signal(SIGINT, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
-    signal(SIGSEGV, segfault);
-
 
     static const struct option opts[] = {
         {"foreground", no_argument, NULL, 'f'},
@@ -1291,13 +1288,6 @@ int signum;
 {
     printlog(LOG_NOTICE, "Received signal %d: Exiting...", signum);
     exit(0);
-}
-
-void segfault(signum)
-int signum;
-{
-    printlog(LOG_NOTICE, "Received SIGSEGV.. Something went wrong! Exiting!");
-    exit(100);
 }
 
 void logoff_msg(tty)
