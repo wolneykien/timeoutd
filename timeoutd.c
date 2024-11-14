@@ -1,5 +1,5 @@
 /*
-		"@(#) timeoutd.c 1.5.2 by Shane Alderton"
+		"@(#) timeoutd.c 1.5.3 by Shane Alderton"
 			based on:
 		"@(#) autologout.c by David Dickson" 
                         updatede by
@@ -25,7 +25,7 @@
 
 */
 
-#define VERSION "1.5.2"
+#define VERSION "1.5.3"
 
 #include    <unistd.h>
 #include    <stdlib.h>
