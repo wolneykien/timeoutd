@@ -1019,7 +1019,7 @@ char *host;
     int		fd;
     FILE	*ttyf;
 #ifdef TIMEOUTDX11
-    char 	cmdbuf[1024];
+    char 	cmdbuf[2048];
 #endif
 
     printlog(LOG_DEBUG, "Warning %s@%s on %s of pending logoff in %d minutes.",
@@ -1031,7 +1031,7 @@ char *host;
 
   	/* then send the message using xmessage */
   	/* well, this is not really clean: */
-	sprintf(cmdbuf, "su %s -c \"xmessage -default okay -display %s -center 'WARNING: You will be logged out in %d minute%s when your %s limit expires.'&\"", user, host, time_remaining, time_remaining==1?"":"s", limit_names[limit_type]);
+	snprintf(cmdbuf, sizeof(cmdbuf), "su %s -c \"xmessage -default okay -display %s -center 'WARNING: You will be logged out in %d minute%s when your %s limit expires.'&\"", user, host, time_remaining, time_remaining==1?"":"s", limit_names[limit_type]);
 	system(cmdbuf);
 
 	printlog(LOG_DEBUG, "cmdbuf=%s", cmdbuf);
@@ -1183,7 +1183,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
 
     pstat = &status;    /* point to status structure */
 #ifndef SUNOS
-    sprintf(path, "/proc/%d", utmpp->ut_pid);
+    snprintf(path, sizeof(path), "/proc/%d", utmpp->ut_pid);
     if (utmpp->ut_type != USER_PROCESS || !utmpp->ut_user[0] || /* if not user process */
 	stat(path, pstat))					/* or if proc doesn't exist */
         return;                      /* skip the utmp entry */
@@ -1211,7 +1211,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
     host[sizeof(host) - 1] = '\0';
     strncpy(dev, utmpp->ut_line, sizeof(dev) - 1);    /* get device name */
     dev[sizeof(dev) - 1] = '\0';
-    sprintf(path, "/dev/%s", dev);
+    snprintf(path, sizeof(path), "/dev/%s", dev);
 
     if (stat(dev, pstat) /* if can't get status for port */
 #ifdef TIMEOUTDX11
@@ -1219,7 +1219,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
 #endif
     )
     {
-        sprintf(errmsg, "Can't get status of user %s's terminal (%s)\n",
+        snprintf(errmsg, sizeof(errmsg), "Can't get status of user %s's terminal (%s)\n",
         	user, dev);
 	/* bailout(1, errmsg); MOH: is there a reason to exit here? */
 	return; 
@@ -1317,13 +1317,13 @@ int tty;
       switch (limit_type)
 	{
 	case NOLOGINMSG:
-	  sprintf(msgbuf, "\r\n\r\nLogins not allowed at this time.  Please try again later.\r\n");
+	  snprintf(msgbuf, sizeof(msgbuf), "\r\n\r\nLogins not allowed at this time.  Please try again later.\r\n");
 	  break;
 	case LOCKOUTMSG:
-	  sprintf(msgbuf, "\r\n\r\nYou have logged in during your lockout time. Logging you off now.\r\n\r\n");
+	  snprintf(msgbuf, sizeof(msgbuf), "\r\n\r\nYou have logged in during your lockout time. Logging you off now.\r\n\r\n");
 	  break;
     	default:
-	  sprintf(msgbuf, "\r\n\r\nYou have exceeded your %s time limit.  Logging you off now.\r\n\r\n", limit_names[limit_type]);
+	  snprintf(msgbuf, sizeof(msgbuf), "\r\n\r\nYou have exceeded your %s time limit.  Logging you off now.\r\n\r\n", limit_names[limit_type]);
 	}
     }
     write(tty, msgbuf, strlen(msgbuf));
@@ -1549,17 +1549,17 @@ void killit_xsession(pid, user, host) /* returns 1 when host seems to be a xSess
 int pid;
 char *host, *user;
 {
-    char	msgbuf[1024], cmdbuf[1024];
+    char	msgbuf[1024], cmdbuf[2048];
   /* first, get the message into msgbuf */
     	if (limit_type == NOLOGINMSG) {
-    	    sprintf(msgbuf, "Logins not allowed at this time.  Please try again later.");
+    	    snprintf(msgbuf, sizeof(msgbuf), "Logins not allowed at this time.  Please try again later.");
 	} else {
-    	    sprintf(msgbuf, "You have exceeded your %s time limit.  Logging you off now.", limit_names[limit_type]);
+    	    snprintf(msgbuf, sizeof(msgbuf), "You have exceeded your %s time limit.  Logging you off now.", limit_names[limit_type]);
         }
 
   /* then send the message using xmessage */
   /* well, this is not really clean: */
-  sprintf(cmdbuf, "su %s -c \"xmessage -display %s -center '%s'&\"", user, host, msgbuf);
+  snprintf(cmdbuf, sizeof(cmdbuf), "su %s -c \"xmessage -display %s -center '%s'&\"", user, host, msgbuf);
   printlog(LOG_DEBUG, "Executing: %s", cmdbuf);
   system(cmdbuf);
 
@@ -1585,7 +1585,7 @@ char *host, *user;
 int chk_ssh(pid)/* seppy; returns true if pid is sshd, otherwise it returns false */
 pid_t pid;
 {
-	sprintf(path, "/proc/%d/stat", pid);
+	snprintf(path, sizeof(path), "/proc/%d/stat", pid);
 	proc_file = fopen(path, "r");
 	if(!proc_file) {
         	printlog(LOG_WARNING, "chk_ssh(): PID %d does not exist. Something went wrong. Ignoring.", pid);
@@ -1605,7 +1605,7 @@ char *getusr(pid) /*seppy; returns the name of the user owning process with the 
 pid_t pid;
 {
 	char uid[99];
-	sprintf(path, "/proc/%d/status", pid);
+	snprintf(path, sizeof(path), "/proc/%d/status", pid);
 	proc_file = fopen(path, "r");
 	if(!proc_file) {
         	printlog(LOG_NOTICE, "getusr(): PID %d does not exist. Ignoring.", pid);
@@ -1643,7 +1643,7 @@ char *display;
 
 	/*save old, to come back*/
 	oldeuid = geteuid();
-	sprintf(oldhomedir, "HOME=%s", getenv("HOME"));
+	snprintf(oldhomedir, sizeof(oldhomedir), "HOME=%s", getenv("HOME"));
 
 	/*become user*/
 	if(seteuid(pwEntry->pw_uid) == -1) {
@@ -1651,7 +1651,7 @@ char *display;
 	    return retval;
 	}
 
-	sprintf(homedir, "HOME=%s", pwEntry->pw_dir);
+	snprintf(homedir, sizeof(homedir), "HOME=%s", pwEntry->pw_dir);
 	putenv(homedir);
 
 	/* First, check if there is a xserver.. */ 
@@ -1692,7 +1692,7 @@ pid_t ppid;
 	FILE *proc_file;
 	struct dirent *cont;
 	char akt_pid[99];
-	char path[256];
+	char path[1024];
 	
 	proc = opendir("/proc/");
 	if(proc == NULL) {
@@ -1702,7 +1702,7 @@ pid_t ppid;
 
 	while((cont = readdir(proc)) != NULL)
 		if(cont->d_type == 4 && isdigit(cont->d_name[0])) { /* check only PIDs */						
-			sprintf(path, "/proc/%s/status", cont->d_name);
+			snprintf(path, sizeof(path), "/proc/%s/status", cont->d_name);
 			proc_file = fopen(path, "r");
 			if(!proc_file) {
 			    printlog(LOG_ERR, "Error opening a proc status file %s.", path);
@@ -1733,7 +1733,7 @@ char *cmd;
 
   	/* save to restore */
 	oldeuid=getuid();
-	sprintf(oldhomedir, "HOME=%s", getenv("HOME"));
+	snprintf(oldhomedir, sizeof(oldhomedir), "HOME=%s", getenv("HOME"));
 	/*become user*/
         pwEntry = getpwnam(user);
 	if(!pwEntry) {
@@ -1742,7 +1742,7 @@ char *cmd;
 	if(seteuid(pwEntry->pw_uid) == -1) {
 	  printlog(LOG_ERR, "Could not seteuid(%d).", pwEntry->pw_uid);
 	}
-	sprintf(homedir, "HOME=%s", pwEntry->pw_dir);
+	snprintf(homedir, sizeof(homedir), "HOME=%s", pwEntry->pw_dir);
 	putenv(homedir);
 
 	retval = system(cmd);
