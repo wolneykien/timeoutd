@@ -925,7 +925,7 @@ char *user;
 	        }
 #endif
                 if (/*logout_p->elem.ut_type == DEAD_PROCESS &&*/
-                  !strcmp(login_p->elem.ut_line, logout_p->elem.ut_line))
+                  !strncmp(login_p->elem.ut_line, logout_p->elem.ut_line, UT_LINESIZE))
                       break;
                 prev_p = logout_p;
                 logout_p = logout_p->next;
@@ -991,7 +991,7 @@ int min;
 		  }
 #endif
 		if (/*test_logout_p->elem.ut_type == DEAD_PROCESS &&*/
-		    !strcmp(test_login_p->elem.ut_line, test_logout_p->elem.ut_line)) /* match */
+		    !strncmp(test_login_p->elem.ut_line, test_logout_p->elem.ut_line, UT_LINESIZE)) /* match */
 		  {
 	    	    login_p =  test_login_p;
 		    logout_p = test_logout_p;
