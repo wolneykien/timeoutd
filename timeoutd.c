@@ -131,7 +131,7 @@ static void vprintlog(int priority, const char *format, va_list ap)
 	if (opt_foreground) {
 		// TODO: Print with priority.
 		if (priority < LOG_NOTICE ||			\
-		    opt_verbose && priority < LOG_DEBUG ||	\
+		    (opt_verbose && priority < LOG_DEBUG) ||	\
 		    opt_debug)
 		{
 			print_loglevel(priority);
