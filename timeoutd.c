@@ -513,6 +513,12 @@ char	*argv[];
     }
 }
 
+static struct tm *localtime_ut_time(const struct utmp *ut)
+{
+    time_t log_time = ut->ut_time;
+    return localtime(&log_time);
+}
+
 /* Read in today's wtmp entries */
 
 void read_wtmp()
@@ -533,9 +539,7 @@ void read_wtmp()
 
     while (fread(&ut, sizeof(struct utmp), 1, fp) == 1)
     {
-      /* tm = localtime(&ut.ut_time); */
-      time_t log_time = ut.ut_time;
-      tm = localtime(&log_time);
+      tm = localtime_ut_time(&ut);
 
       if (tm->tm_year != now.tm_year || tm->tm_yday != now.tm_yday)
         break;
@@ -575,7 +579,7 @@ void free_wtmp()
     while (wtmplist)
     {
 	struct tm	*tm;
-	tm = localtime(&(wtmplist->elem.ut_time));
+	tm = localtime_ut_time(&(wtmplist->elem));
 	printlog(LOG_DEBUG, "%d:%d %s %s %s",
 		 tm->tm_hour,tm->tm_min, wtmplist->elem.ut_line,
 		 wtmplist->elem.ut_user,
@@ -896,7 +900,7 @@ char *user;
         {
 
 	    struct tm	*tm;
-	    tm = localtime(&(login_p->elem.ut_time));
+	    tm = localtime_ut_time(&(login_p->elem));
 	    printlog(LOG_DEBUG, "%d:%d %s %s %s",
 		     tm->tm_hour,tm->tm_min, login_p->elem.ut_line,
 		     login_p->elem.ut_user,
@@ -929,7 +933,7 @@ char *user;
 
 	    if (logout_p)
 	    {
-		tm = localtime(&(logout_p->elem.ut_time));
+		tm = localtime_ut_time(&(logout_p->elem));
 		printlog(LOG_DEBUG, "%d:%d %s %s %s",
 			 tm->tm_hour,tm->tm_min, logout_p->elem.ut_line,
 			 logout_p->elem.ut_user, "logout");
