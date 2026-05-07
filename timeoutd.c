@@ -1,8 +1,8 @@
 /*
-		"@(#) timeoutd.c 1.5.3 by Shane Alderton"
+		"@(#) timeoutd.c 1.5.4 by Shane Alderton"
 			based on:
 		"@(#) autologout.c by David Dickson" 
-                        updatede by
+                        updated by
 		"@(#) Dennis Stampfer and Paul Wolneykien"
 
     This program is free software; you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 
 */
 
-#define VERSION "1.5.3"
+#define VERSION "1.5.4"
 
 #include    <unistd.h>
 #include    <stdlib.h>
