@@ -1,4 +1,5 @@
 CFLAGS = -fomit-frame-pointer -O2 -s -g -Wall
+_CFLAGS = $(CFLAGS) -Wno-old-style-definition
 binaries = timeoutd dump_utmp
 
 sbindir = /usr/sbin
@@ -15,11 +16,11 @@ DESTDIR =
 all: dump_utmp timeoutd
 
 timeoutd: timeoutd.c Makefile
-	$(CC) $(CFLAGS) -o timeoutd.o -c timeoutd.c -DTIMEOUTDX11
-	$(CC) $(CFLAGS) -o timeoutd timeoutd.o -lXss -lXext -lX11
+	$(CC) $(_CFLAGS) -o timeoutd.o -c timeoutd.c -DTIMEOUTDX11
+	$(CC) $(_CFLAGS) -o timeoutd timeoutd.o -lXss -lXext -lX11
 
 dump_utmp: dump_utmp.c
-	$(CC) $(CFLAGS) -o dump_utmp dump_utmp.c
+	$(CC) $(_CFLAGS) -o dump_utmp dump_utmp.c
 
 install:
 	$(INSTALL) -D -m 0751 timeoutd $(DESTDIR)$(sbindir)/timeoutd
