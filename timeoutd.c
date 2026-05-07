@@ -1031,9 +1031,12 @@ char *host;
   	/* then send the message using xmessage */
   	/* well, this is not really clean: */
 	snprintf(cmdbuf, sizeof(cmdbuf), "su %s -c \"xmessage -default okay -display %s -center 'WARNING: You will be logged out in %d minute%s when your %s limit expires.'&\"", user, host, time_remaining, time_remaining==1?"":"s", limit_names[limit_type]);
-	system(cmdbuf);
-
-	printlog(LOG_DEBUG, "cmdbuf=%s", cmdbuf);
+	printlog(LOG_DEBUG, "Executing: %s", cmdbuf);
+	int cmdstatus = system(cmdbuf);
+	if (cmdstatus < 0)
+	  printlog(LOG_WARNING, "Command could not be executed!");
+	else if (WEXITSTATUS(cmdstatus) != 0)
+	  printlog(LOG_WARNING, "Command failed!");
 
 	sleep(KWAIT); /* and give the user some time to read the message ;) */
 	return;
@@ -1306,7 +1309,8 @@ int tty;
 	if (msgfile)
 	  {
 	    while ((cnt = read(fileno(msgfile), msgbuf, sizeof(msgbuf))) > 0)
-	      write(tty, msgbuf, cnt);
+	      if (write(tty, msgbuf, cnt) != cnt)
+		printlog(LOG_WARNING, "write() failed!");
 	    fclose(msgfile);
 	    return;
 	  } else {
@@ -1325,7 +1329,8 @@ int tty;
 	  snprintf(msgbuf, sizeof(msgbuf), "\r\n\r\nYou have exceeded your %s time limit.  Logging you off now.\r\n\r\n", limit_names[limit_type]);
 	}
     }
-    write(tty, msgbuf, strlen(msgbuf));
+    if (write(tty, msgbuf, strlen(msgbuf)) != strlen(msgbuf))
+      printlog(LOG_WARNING, "write() failed!");
 }
 
 /* terminate process using SIGHUP, then SIGKILL */
@@ -1560,7 +1565,11 @@ char *host, *user;
   /* well, this is not really clean: */
   snprintf(cmdbuf, sizeof(cmdbuf), "su %s -c \"xmessage -display %s -center '%s'&\"", user, host, msgbuf);
   printlog(LOG_DEBUG, "Executing: %s", cmdbuf);
-  system(cmdbuf);
+  int cmdstatus = system(cmdbuf);
+  if (cmdstatus < 0)
+    printlog(LOG_WARNING, "Command could not be executed!");
+  else if (WEXITSTATUS(cmdstatus) != 0)
+    printlog(LOG_WARNING, "Command failed!");
 
   sleep(KWAIT); /* and give the user some time to read the message ;) */
 
@@ -1591,10 +1600,10 @@ pid_t pid;
 		return 0;
 	}
 
-	fscanf (proc_file, "%*d (%[^)]", comm);
+	int ret = fscanf (proc_file, "%*d (%[^)]", comm);
 	fclose(proc_file);
 	
-	if(!strcmp(comm, "sshd"))
+	if (ret && !strcmp(comm, "sshd"))
 		return 1;
 	else
 		return 0;
@@ -1611,7 +1620,8 @@ pid_t pid;
 		return "unknown";
 	}
 	while(!fscanf(proc_file, "Uid:    %s", uid))
-                fgets(uid, 98, proc_file);
+	  if (!fgets(uid, 98, proc_file))
+	    printlog(LOG_WARNING, "fgets() failed!");
 	fclose(proc_file);
 	return getpwuid(atoi(uid))->pw_name;
 }
@@ -1709,7 +1719,8 @@ pid_t ppid;
 			}
 
 			while(!fscanf(proc_file, "PPid:    %s", akt_pid))
-                		fgets(akt_pid, 10, proc_file);
+			  if (!fgets(akt_pid, 10, proc_file))
+			    printlog(LOG_WARNING, "fgets() failed!");
 
 			if(atoi(akt_pid) == ppid)
 				return (pid_t)atoi(cont->d_name); /* return pid of child */
