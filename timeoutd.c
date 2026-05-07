@@ -213,32 +213,31 @@ char	*daynames[] = {"SU", "MO", "TU", "WE", "TH", "FR", "SA", "WK", "AL", NULL};
 char	daynums[] = {   1  ,  2  ,  4  ,  8  ,  16 ,  32 ,  64 ,  62 ,  127, 0};
 
 struct utmp *utmpp;         /* pointer to utmp file entry */
-char        *ctime();       /* returns pointer to time string */
 struct utmp *getutent();    /* returns next utmp file entry */
-void	    shut_down();
+void	    shut_down(int signum);
 void	    read_config();
-void	    reread_config();
-void        reapchild();
+void	    reread_config(int signum);
+void	    reapchild(int signum);
 void        free_wtmp();
 void        check_idle();
 void        read_wtmp();
 void        bailout(int status, const char *message, ...);
-char	    chk_timeout();
-void	    logoff_msg();
-void	    killit();
-int	    getdisc();
+char	    chk_timeout(char *user, char *dev, char *host, int idle, int session);
+void	    logoff_msg(int tty);
+void	    killit(int pid, char *user, char *dev, char *host);
+int	    getdisc(char *d, char *host);
 void	    get_day_time(char*);
 int	    get_rest_time(char*,int);
 int 	    chk_ssh(pid_t pid); /* seppy: check if user is logged in via ssh (we have to
 handle that different... ;( */
 char	    *getusr(pid_t pid); /*seppy: get the owner of a running process */
-int	    chk_xterm(); /* seppy: is it a xterm? */
-pid_t	    getcpid(); /* seppy: get the child's pid. Needed for ssh */
+int	    chk_xterm(char *dev, char *host); /* seppy: is it a xterm? */
+pid_t	    getcpid(pid_t ppid); /* seppy: get the child's pid. Needed for ssh */
 
 #ifdef TIMEOUTDX11
-Time	    get_xidle(); /* seppy: how long is user idle? (user,display)*/
-int	    chk_xsession(); /* seppy: is it a X-Session? */
-void	    killit_xsession(); /* seppy: kill the X-Session*/
+Time	    get_xidle(char *user, char *display); /* seppy: how long is user idle? (user,display)*/
+int	    chk_xsession(char *dev, char *host); /* seppy: is it a X-Session? */
+void	    killit_xsession(int pid, char *host, char *user); /* seppy: kill the X-Session*/
 #endif
 
 
@@ -1178,7 +1177,7 @@ void check_idle()    /* Check for exceeded time limits & logoff exceeders */
     char        user[sizeof(utmpp->ut_user)];
     char	host[sizeof(utmpp->ut_host)];
     struct stat status, *pstat;
-    time_t	idle, sesstime, time();
+    time_t	idle, sesstime;
     short aktconfigline = -1; /* -1 if user is in config; >0 if he's not in config, * is handled in an other way */
 
     pstat = &status;    /* point to status structure */
